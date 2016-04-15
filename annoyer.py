@@ -36,13 +36,15 @@ Dependencies:
 """
 
 
+from email.mime.text import MIMEText
 import logging
 import smtplib
 import datetime
 import sys
 import os
-import shutil
-from email.mime.text import MIMEText
+import re
+import argparse
+import yaml
 
 """
 In this section all configurations for the script are made
@@ -50,7 +52,6 @@ In this section all configurations for the script are made
 
 # Specifies the sender of the e-mail
 MAIL_FROM = 'janosch.deurer@geonautik.de'
-
 # Configure the loglevel here
 LOGLEVEL = logging.DEBUG
 
@@ -58,77 +59,83 @@ class EMail(object):
 
     """Docstring for EMail. """
 
-    def __init__(self, file_path, level):
+    def __init__(self, file_path, interval):
         """TODO: to be defined1. """
-        self.recipients = []
-        self.max_mail_on_level = -2
-        self.level = level
-        self.next_level = ""
-        self.subject = ""
-        self.mail_text = ""
         self.file_path = file_path
-        self.logdir = os.path.join(os.path.pardir, "log", self.file_path)
+        self.interval = interval
+        self.email_config = None
+        if self.interval.endswith("/"):
+            self.level = self.level[0:-1]
+
+    def __str__(self):
+        """TODO: Docstring for __str__.
+        :returns: TODO
+
+        """
+        return "file_path: " + self.file_path + "\n" + \
+            "interval: " + self.interval + "\n" + \
+            "emai_config: " + str(self.email_config)
 
     def load_file(self):
         """TODO: Docstring for load_file.
         :returns: TODO
 
         """
+        # Load Yaml config for this mail
         with open(self.file_path, "r") as email_file:
-            in_email_text = False
-            for line in email_file:
-                print(line)
-
-                if line.startswith("{{mailtext}}"):
-                    in_email_text = not in_email_text
-
-                if in_email_text:
-                    self.mail_text += line.replace("{{mailtext}}", "")
-
-                if line.endswith("{{mailtext}}\n"):
-                    # Prevent that in_email_text is toggled twice when only
-                    # identifyer is in the line
-                    if line == "{{mailtext}}\n":
-                        continue
-                    in_email_text = False
-                    logging.debug(self.mail_text)
-                    continue
-
-                if line.startswith("{{reciepient}}"):
-                    address = line.split()[1]
-                    self.recipients.append(address)
-                    logging.debug(self.recipients)
-                    continue
-
-                if line.startswith("{{intervall}}"):
-                    if line.split()[1] == self.level:
-                        self.max_mail_on_level = int(line.split()[2])
-                        logging.debug(self.max_mail_on_level)
-                        if self.max_mail_on_level != -1:
-                            self.next_level = line.split()[3]
-                    continue
-
-                if line.startswith("{{subject}}"):
-                    self.subject = line.replace("{{subject}} ", "")
-                    logging.debug(self.subject)
-                    continue
+            try:
+                self.email_config = yaml.safe_load(email_file.read())
+            except yaml.YAMLError as err:
+                logging.critical("Yaml errror in the mail " + self.file_path + "\n"
+                                 + str(err) + " \n Exiting program")
+                exit(1)
 
 
 
-        if self.mail_text.startswith(" "):
-            self.mail_text = self.mail_text[1:]
-            logging.debug(self.mail_text)
+        logging.debug("Succesfully read config from '" + self.file_path + "'\n" +
+                      "The read config is: \n" + str(self))
+
+    def yaml_key_not_found(self, key):
+        """
+        doc
+        """
+        logging.critical("YAML Key '" + key + "' not found in the mail " + self.file_path)
+        logging.critical("Exiting program due to previouse errors.")
+        exit(1)
+
 
     def send(self):
         """TODO: Docstring for send_mail.
         :returns: TODO
 
         """
-        # for recipient in self.recipients:
-        #     write_email(self.mail_text, self.subject, recipient)
-        os.makedirs(name=self.logdir, exist_ok=True)
-        touch(os.path.join(self.logdir, str(datetime.datetime.now())))
 
+        # Check if recipients are given
+        if "recipients" not in self.email_config:
+            self.yaml_key_not_found("recipients")
+
+        recipients = self.email_config["recipients"]
+
+        # if only one recipient was given convert string to list
+        if not hasattr(recipients, "append"):
+            recipients = [recipients]
+
+
+        # Check if subject is given
+        if "subject" not in self.email_config:
+            self.yaml_key_not_found("subject")
+
+        subject = self.email_config["subject"]
+
+        # Check if subject is given
+        if "mailtext" not in self.email_config:
+            self.yaml_key_not_found("mailtext")
+
+        mail_text = self.email_config["mailtext"]
+
+        # Send a seperate mail for each recipient
+        for recipient in recipients:
+            write_email(mail_text, subject, recipient)
 
 
     def move_mail(self):
@@ -138,63 +145,51 @@ class EMail(object):
         :returns: TODO
 
         """
-        os.makedirs(name=self.logdir, exist_ok=True)
+        # Check if intervals are given
+        if "intervals" not in self.email_config:
+            self.yaml_key_not_found("intervals")
 
-        num_executions = len(os.listdir(self.logdir))
-        print(num_executions)
-        if num_executions < self.max_mail_on_level or self.max_mail_on_level == -1:
-            return
-        new_filepath = os.path.join(os.path.pardir, self.next_level,
-                                    self.file_path)
-        os.rename(self.file_path, new_filepath)
-        shutil.rmtree(self.logdir)
-        
+        # Check if current interval is given
+        if self.interval not in self.email_config["intervals"]:
+            self.yaml_key_not_found("intervals: " + self.interval)
 
-def main():
-    """
-    Entrypoint if called as an executable
-    """
+        # Check if file already has a number attached that counts the remaining
+        # sends in this interval. Else read this number from the config
+        ends_with_number = bool(re.findall(r"\.[0-9]$", self.file_path))
+        remaining_repetitions = 0
+        new_file_path = self.file_path
+        if ends_with_number:
+            remaining_repetitions = int(self.file_path.split(".")[-1]) - 1
+            new_file_path = self.file_path.split(".")[0:-1] + "." + str(remaining_repetitions)
 
-    logging.basicConfig(level=LOGLEVEL)
-
-    if len(sys.argv) != 2:
-        print_usage()
-
-    logging.info('Script was started at ' + str(datetime.datetime.now()))
-
-    level = sys.argv[1]
-    os.chdir(level)
-    email_files = [f for f in os.listdir() if
-                   os.path.isfile(f)]
-    print(email_files)
-
-    emails = []
-
-    for email in email_files:
-        emails.append(EMail(email, level))
-
-    for email in emails:
-        email.load_file()
-        email.send()
-        email.move_mail()
+        else:
+            # Try to read remaining repetitions from config
+            if "repetitions" not in self.email_config["intervals"][self.interval]:
+                self.yaml_key_not_found("intervals: " + self.interval + " repetitions")
+            remaining_repetitions = int(self.email_config["intervals"]
+                                        [self.interval]["repetitions"]) - 1
+            new_file_path = self.file_path + "." + str(remaining_repetitions)
 
 
+        # Check if mail hast to be moved into a new folder
+        if remaining_repetitions <= 0:
+            # Check if next_interval is given
+            if "next_interval" not in self.email_config["intervals"][self.interval]:
+                self.yaml_key_not_found("intervals: " + self.interval + ": next_interval")
 
-def print_usage():
-    """TODO: Docstring for print_usage.
-    :returns: TODO
+            next_interval = self.email_config["intervals"][self.interval]["next_interval"]
 
-    """
-    print("Usage: ./mailer.sh <intervall>")
-    print("there must exist a directory for the given interval in this" +
-          "directory")
-    exit(1)
+            # Check if repetitions for next_interval are given
+            if "repetitions" not in self.email_config["intervals"][next_interval]:
+                self.yaml_key_not_found("intervals: " + next_interval + ": repetitions")
 
-def touch(fname, times=None):
-    """TODO:
-    """
-    with open(fname, 'a'):
-        os.utime(fname, times)
+            repetitions = self.email_config["intervals"][next_interval]["repetitions"]
+            new_file_path = os.path.join(os.pardir, next_interval,
+                                         new_file_path.split(".")[0:-1] + repetitions)
+
+
+        os.rename(self.file_path, new_file_path)
+        self.file_path = new_file_path
 
 
 def write_email(msg_text, msg_subject, mail_to):
@@ -216,6 +211,105 @@ def write_email(msg_text, msg_subject, mail_to):
     smtpserver.send_message(msg)
     smtpserver.quit()
     logging.debug("A message was sent to" + mail_to)
+
+def readable_dir(path):
+    """TODO: Docstring for readable_dir.
+
+    :path: TODO
+    :returns: TODO
+
+    """
+    if not os.path.isdir(path):
+        raise argparse.ArgumentTypeError("{0} is not an existing directory".format(path))
+    return path
+
+def get_commandline_arguments():
+    """TODO: Docstring for get_commandline_arguments.
+    :returns: TODO
+
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("intervall", help="directory with the mails to be progressed",
+                        type=readable_dir)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-v", "--verbosity", help="increase output verbosity", action="store_true")
+    group.add_argument("-q", "--quiet", help="no output except errors", action="store_true")
+    args = parser.parse_args()
+    return args
+
+
+def read_config():
+    """
+    doc
+    """
+    config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                               "config.yml"))
+    if os.path.exists(config_path):
+        with open(config_path, "r") as config_file:
+            config_str = config_file.read()
+        config = yaml.safe_load(config_str)
+        if config["mail_from"] == "john.doe@example.com":
+            print("Please change the sender mail adress in the config file")
+            print("john.doe@example.com should not be used")
+            exit(1)
+        return config
+
+    # If we reach this point, there is no config yet.
+    print("No config file found at expected path: " + config_path)
+    print("A default config file will be created...")
+    config = \
+"""# This is an example config file, please configure it for your needs.
+
+# Please coose an E-Mail that will be send in the from header.
+mail_from: john.doe@example.com
+
+# For debugging purposes you can change this to logging.DEBUG
+loglevel: logging.INFO
+"""
+
+    with open(config_path, "w") as config_file:
+        config_file.write(config)
+    print("Please review your new config and start again.", file=sys.stderr)
+    exit(1)
+
+
+def main():
+    """
+    Entrypoint if called as an executable
+    """
+    commandline_args = get_commandline_arguments()
+    config = read_config()
+
+    # override config with commandline arguments
+    if commandline_args.verbosity:
+        config["loglevel"] = "DEBUG"
+    if commandline_args.quiet:
+        config["loglevel"] = "ERROR"
+
+    loglevel = getattr(logging, config["loglevel"].upper())
+    logging.basicConfig(level=loglevel)
+
+
+    logging.info('Script was started at ' + str(datetime.datetime.now()))
+
+    intervall = commandline_args.intervall
+
+    logging.info("Switching to directory " + intervall)
+    os.chdir(intervall)
+    email_files = [f for f in os.listdir() if
+                   os.path.isfile(f)]
+    logging.debug("The following Mail files where found: " + str(email_files))
+
+    emails = []
+
+    for email in email_files:
+        emails.append(EMail(email, intervall))
+
+    for email in emails:
+        email.load_file()
+
+        # email.send()
+        # email.move_mail()
 
 if __name__ == "__main__":
     main()
