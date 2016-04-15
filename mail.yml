@@ -1,10 +1,12 @@
-# E-Mail Adressen Empfänger
+# Recipients for the E-Mail
 recipients:
   - bla@blubb
-# Wie viele Mail sollen gesendet werden, bis zur nächsten Frequenz gewechselt wird?
-# Wie heißt welche Frequenz
-# -1 stay forever in this 
-# {{intervall}} <current intervall> <repetitions> <next intervall>
+
+# Interval definition
+# Each interval consists of:
+#   repetitions: how often the mail should be sent in this interval
+#   next_interval: the interval the mail will be in as soon as it is 
+#     send repetitions times. If this is set to -1 it is send infinitely often
 intervals:
   weekly:
     repetitions: 8
@@ -15,11 +17,11 @@ intervals:
   hourly:
     repetitions: -1
 
-# Betreff
-subject: Dies ist ein toller Betreff
+# Mail Subject
+subject: This is a nice subject
 
-# Email Text
+# Mail text
 mailtext: |
-  Dies ist ein toller E-Mail Text
-  aasfafd
-  asdf
+  This is a nice e mail text
+  it can have line-
+  breaks :)
