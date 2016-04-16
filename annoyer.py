@@ -152,15 +152,20 @@ class EMail(object):
 
         # Check if file already has a number attached that counts the remaining
         # sends in this interval. Else read this number from the config
-        ends_with_number = bool(re.findall(r"\.[0-9]$", self.file_path))
+        ends_with_number = bool(re.findall(r"\.[0-9]*$", self.file_path))
         remaining_repetitions = 0
+        logging.debug("Trying to determine number of remaining repetitions")
         new_file_path = self.file_path
         if ends_with_number:
+            logging.debug("Filename ends on number, extracting number")
             remaining_repetitions = int(self.file_path.split(".")[-1]) - 1
-            new_file_path = self.file_path.split(".")[0:-1] + "." + str(remaining_repetitions)
+            new_file_path = "".join(self.file_path.split(".")[0:-1]) + \
+                            "." + str(remaining_repetitions)
 
         else:
             # Try to read remaining repetitions from config
+            logging.debug("Filename does not end on number, extracting" +
+                          "remaining_repetitions form config file")
             if "repetitions" not in self.email_config["intervals"][self.interval]:
                 self._yaml_key_not_found("intervals: " + self.interval + " repetitions")
             remaining_repetitions = int(self.email_config["intervals"]
