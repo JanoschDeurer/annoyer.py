@@ -152,14 +152,14 @@ class EMail(object):
 
         # Check if file already has a number attached that counts the remaining
         # sends in this interval. Else read this number from the config
-        ends_with_number = bool(re.findall(r"\.[0-9]*$", self.file_path))
+        ends_with_number = bool(re.findall(r"\.-?[0-9]*$", self.file_path))
         remaining_repetitions = 0
         logging.debug("Trying to determine number of remaining repetitions")
         new_file_path = self.file_path
         if ends_with_number:
             logging.debug("Filename ends on number, extracting number")
-            remaining_repetitions = int(self.file_path.split(".")[-1]) - 1
-            new_file_path = "".join(self.file_path.split(".")[0:-1]) + \
+            remaining_repetitions = int(self.file_path.split(".")[-1])
+            new_file_path = os.path.splitext(self.file_path)[0] + \
                             "." + str(remaining_repetitions)
 
         else:
@@ -169,12 +169,14 @@ class EMail(object):
             if "repetitions" not in self.email_config["intervals"][self.interval]:
                 self._yaml_key_not_found("intervals: " + self.interval + " repetitions")
             remaining_repetitions = int(self.email_config["intervals"]
-                                        [self.interval]["repetitions"]) - 1
+                                        [self.interval]["repetitions"])
             new_file_path = self.file_path + "." + str(remaining_repetitions)
 
+        if remaining_repetitions > 0:
+            remaining_repetitions -= 1
 
         # Check if mail hast to be moved into a new folder
-        if remaining_repetitions <= 0:
+        if remaining_repetitions == 0:
             # Check if next_interval is given
             if "next_interval" not in self.email_config["intervals"][self.interval]:
                 self._yaml_key_not_found("intervals: " + self.interval + ": next_interval")
@@ -187,7 +189,7 @@ class EMail(object):
 
             repetitions = self.email_config["intervals"][next_interval]["repetitions"]
             new_file_path = os.path.join(os.pardir, next_interval,
-                                         new_file_path.split(".")[0:-1] + repetitions)
+                                         os.path.splitext(new_file_path)[0] + "." + str(repetitions))
 
 
         os.rename(self.file_path, new_file_path)
