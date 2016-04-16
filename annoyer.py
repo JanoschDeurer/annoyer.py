@@ -46,21 +46,12 @@ import re
 import argparse
 import yaml
 
-"""
-In this section all configurations for the script are made
-"""
-
-# Specifies the sender of the e-mail
-MAIL_FROM = 'janosch.deurer@geonautik.de'
-# Configure the loglevel here
-LOGLEVEL = logging.DEBUG
 
 class EMail(object):
 
-    """Docstring for EMail. """
+    """Class for an EMail object """
 
     def __init__(self, file_path, interval):
-        """TODO: to be defined1. """
         self.file_path = file_path
         self.interval = interval
         self.email_config = None
@@ -68,8 +59,8 @@ class EMail(object):
             self.level = self.level[0:-1]
 
     def __str__(self):
-        """TODO: Docstring for __str__.
-        :returns: TODO
+        """ String representation of the class
+        :returns: String representation of the class members
 
         """
         return "file_path: " + self.file_path + "\n" + \
@@ -77,8 +68,8 @@ class EMail(object):
             "emai_config: " + str(self.email_config)
 
     def load_file(self):
-        """TODO: Docstring for load_file.
-        :returns: TODO
+        """ Loads configuration out of self.file_path into self.email_config
+        :returns: None
 
         """
         # Load Yaml config for this mail
@@ -93,11 +84,13 @@ class EMail(object):
 
 
         logging.debug("Succesfully read config from '" + self.file_path + "'\n" +
-                      "The read config is: \n" + str(self))
+                      "The mail object now looks as follows: \n" + str(self))
 
-    def yaml_key_not_found(self, key):
-        """
-        doc
+    def _yaml_key_not_found(self, key):
+        """ Prints out an error that the given key could not be found and exits the programm
+        :key: Yaml key that was not found in the loaded config
+        :returns: None
+
         """
         logging.critical("YAML Key '" + key + "' not found in the mail " + self.file_path)
         logging.critical("Exiting program due to previouse errors.")
@@ -105,14 +98,16 @@ class EMail(object):
 
 
     def send(self):
-        """TODO: Docstring for send_mail.
-        :returns: TODO
+        """ Parses email_config for mail configuration an sends emails to the
+        given recipients with the given subject and body. load_file has to be
+        executed before this method.
+        :returns: None
 
         """
 
         # Check if recipients are given
         if "recipients" not in self.email_config:
-            self.yaml_key_not_found("recipients")
+            self._yaml_key_not_found("recipients")
 
         recipients = self.email_config["recipients"]
 
@@ -123,13 +118,13 @@ class EMail(object):
 
         # Check if subject is given
         if "subject" not in self.email_config:
-            self.yaml_key_not_found("subject")
+            self._yaml_key_not_found("subject")
 
         subject = self.email_config["subject"]
 
         # Check if subject is given
         if "mailtext" not in self.email_config:
-            self.yaml_key_not_found("mailtext")
+            self._yaml_key_not_found("mailtext")
 
         mail_text = self.email_config["mailtext"]
 
@@ -139,19 +134,19 @@ class EMail(object):
 
 
     def move_mail(self):
-        """TODO: Docstring for move_mail.
+        """Decreases the number of remaining repetitions of this mail and moves
+        it to the next interval if they are zero
 
-        :arg1: TODO
-        :returns: TODO
+        :returns: None
 
         """
         # Check if intervals are given
         if "intervals" not in self.email_config:
-            self.yaml_key_not_found("intervals")
+            self._yaml_key_not_found("intervals")
 
         # Check if current interval is given
         if self.interval not in self.email_config["intervals"]:
-            self.yaml_key_not_found("intervals: " + self.interval)
+            self._yaml_key_not_found("intervals: " + self.interval)
 
         # Check if file already has a number attached that counts the remaining
         # sends in this interval. Else read this number from the config
@@ -165,7 +160,7 @@ class EMail(object):
         else:
             # Try to read remaining repetitions from config
             if "repetitions" not in self.email_config["intervals"][self.interval]:
-                self.yaml_key_not_found("intervals: " + self.interval + " repetitions")
+                self._yaml_key_not_found("intervals: " + self.interval + " repetitions")
             remaining_repetitions = int(self.email_config["intervals"]
                                         [self.interval]["repetitions"]) - 1
             new_file_path = self.file_path + "." + str(remaining_repetitions)
@@ -175,13 +170,13 @@ class EMail(object):
         if remaining_repetitions <= 0:
             # Check if next_interval is given
             if "next_interval" not in self.email_config["intervals"][self.interval]:
-                self.yaml_key_not_found("intervals: " + self.interval + ": next_interval")
+                self._yaml_key_not_found("intervals: " + self.interval + ": next_interval")
 
             next_interval = self.email_config["intervals"][self.interval]["next_interval"]
 
             # Check if repetitions for next_interval are given
             if "repetitions" not in self.email_config["intervals"][next_interval]:
-                self.yaml_key_not_found("intervals: " + next_interval + ": repetitions")
+                self._yaml_key_not_found("intervals: " + next_interval + ": repetitions")
 
             repetitions = self.email_config["intervals"][next_interval]["repetitions"]
             new_file_path = os.path.join(os.pardir, next_interval,
@@ -203,7 +198,7 @@ def write_email(msg_text, msg_subject, mail_to):
 
     msg = MIMEText(msg_text)
     msg['Subject'] = msg_subject
-    msg['From'] = MAIL_FROM
+    msg['From'] = "janosch.deurer@geonautik.de"
     msg['To'] = mail_to
 
     # Send the message via our own SMTP server.
@@ -212,11 +207,12 @@ def write_email(msg_text, msg_subject, mail_to):
     smtpserver.quit()
     logging.debug("A message was sent to" + mail_to)
 
-def readable_dir(path):
-    """TODO: Docstring for readable_dir.
+def is_dir(path):
+    """ Checks whether a directory exists and raises an argparse Error
+    otherwise
 
-    :path: TODO
-    :returns: TODO
+    :path: path to check for the directory
+    :returns: path if path is an existing directory
 
     """
     if not os.path.isdir(path):
@@ -224,13 +220,13 @@ def readable_dir(path):
     return path
 
 def get_commandline_arguments():
-    """TODO: Docstring for get_commandline_arguments.
-    :returns: TODO
+    """ Commandline argument parser for this module
+    :returns: namespace with parsed arguments
 
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("intervall", help="directory with the mails to be progressed",
-                        type=readable_dir)
+                        type=is_dir)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--verbosity", help="increase output verbosity", action="store_true")
     group.add_argument("-q", "--quiet", help="no output except errors", action="store_true")
@@ -239,8 +235,10 @@ def get_commandline_arguments():
 
 
 def read_config():
-    """
-    doc
+    """ Config parser for this module. If no config can be found at
+    ./config.yml one will be created
+    :returns: dictionary with parsed cofing
+
     """
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                "config.yml"))
