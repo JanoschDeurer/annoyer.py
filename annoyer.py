@@ -56,7 +56,7 @@ class EMail(object):
         self.interval = interval
         self.email_config = None
         if self.interval.endswith("/"):
-            self.level = self.level[0:-1]
+            self.interval = self.interval[0:-1]
 
     def __str__(self):
         """ String representation of the class
@@ -130,6 +130,8 @@ class EMail(object):
 
         # Send a seperate mail for each recipient
         for recipient in recipients:
+            logging.info("sending mail '" + self.file_path + "' to " +
+                         recipient)
             write_email(mail_text, subject, recipient)
 
 
@@ -306,8 +308,8 @@ def main():
     for email in emails:
         email.load_file()
 
-        # email.send()
-        # email.move_mail()
+        email.send()
+        email.move_mail()
 
 if __name__ == "__main__":
     main()
