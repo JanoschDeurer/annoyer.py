@@ -189,7 +189,8 @@ class EMail(object):
 
             repetitions = self.email_config["intervals"][next_interval]["repetitions"]
             new_file_path = os.path.join(os.pardir, next_interval,
-                                         os.path.splitext(new_file_path)[0] + "." + str(repetitions))
+                                         os.path.splitext(new_file_path)[0] +
+                                         "." + str(repetitions))
 
 
         os.rename(self.file_path, new_file_path)
