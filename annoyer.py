@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 This program sends reminder mails with an increasing frequency to remind people
 to do something. The E-Mail itself as well as the frequency are configurable
-for each mail seperately. Please have a look into the template_mail file.
+for each mail seperately. Please have a look into the example_mail.yml file.
 
 Author: Janosch Deurer
 E-Mail: janosch.deurer@geonautik.de
