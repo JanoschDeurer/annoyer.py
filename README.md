@@ -1,11 +1,11 @@
 # annoyer.py
 
-**Note: This program is still in its testing phase and will probably contain
-bugs.**
+**Note:** This program is still in its testing phase and will probably contain
+bugs.
 
 This program sends reminder mails with an increasing frequency to remind people
 to do something. The E-Mail itself as well as the frequency are configurable
-for each mail seperately. Please have a look into the example_mail.yml file.
+for each mail separately. Please have a look into the example_mail.yml file.
 
 ## Installation
 
@@ -16,13 +16,13 @@ wget https://raw.githubusercontent.com/JanoschDeurer/annoyer.py/master/annoyer.p
 ```
 
 annoyer.py uses the python3 smtplib module. It assumes that you have a running
-mailserver on your computer.
+mail server on your computer.
 
 ## Usage
 
 ### Cronjob
 
-The program is intendet to be executed as a cronjob. A cronjob definition cold
+The program is intended to be executed as a cronjob. A cronjob definition cold
 look as follows:
 
 ``` bash
@@ -35,7 +35,7 @@ look as follows:
 
 ```
 
-The concept is simmilar to the one used with rsnapshot. You can define
+The concept is similar to the one used with rsnapshot. You can define
 arbitrary intervals by writing them in your crontab. The script then looks for
 a folder with mails for the given interval relative to the script location.
 Therefore for this example the directories ```/path/to/hourly```
