@@ -77,13 +77,15 @@ class EMail(object):
         """
         # Load Yaml config for this mail
         with open(self.file_path, "r") as email_file:
-            try:
-                self.email_config = yaml.safe_load(email_file.read())
-            except yaml.YAMLError as err:
-                logging.error("Yaml errror in the mail " + self.file_path + "\n"
-                              + str(err))
-                self.email_config_has_errors = True
-                return
+            text_email_file = email_file.read()
+
+        try:
+            self.email_config = yaml.safe_load(text_email_file)
+        except yaml.YAMLError as err:
+            logging.error("Yaml errror in the mail " + self.file_path + "\n"
+                          + str(err))
+            self.email_config_has_errors = True
+            return
 
         keys = ["recipients", "subject", "mailtext"]
 
@@ -275,32 +277,56 @@ def read_config():
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                "config.yml"))
     if os.path.exists(config_path):
+        config = None
         with open(config_path, "r") as config_file:
             config_str = config_file.read()
-        config = yaml.safe_load(config_str)
-        if config["mail_from"] == "john.doe@example.com":
-            print("Please change the sender mail adress in the config file")
-            print("john.doe@example.com should not be used")
+        try:
+            config = yaml.safe_load(config_str)
+        except yaml.YAMLError as err:
+            logging.critical("Yaml errror in 'config.yml':\n"
+                             + str(err) + "\n" +
+                             "exiting program")
             exit(1)
+        if "mail_from" not in config:
+            logging.critical("YAML Key 'mail_from' not found in config.yml\nexiting program")
+            exit(1)
+
+        if config["mail_from"] == "john.doe@example.com":
+            logging.critical("Please change the sender mail adress in the config file")
+            logging.critical("john.doe@example.com should not be used")
+            exit(1)
+        if "loglevel" not in config:
+            config["loglevel"] = "INFO"
         return config
 
+
     # If we reach this point, there is no config yet.
-    print("No config file found at expected path: " + config_path)
-    print("A default config file will be created...")
+    logging.error("No config file found at expected path: " + config_path)
+    logging.error("A default config file will be created...")
     config = \
 """# This is an example config file, please configure it for your needs.
 
 # Please coose an E-Mail that will be send in the from header.
 mail_from: john.doe@example.com
 
-# For debugging purposes you can change this to logging.DEBUG
+# For debugging purposes you can change this to DEBUG
+# The allowed values for loglevel in decending order of verbosity are:
+# DEBUG
+# INFO
+# WARNING
+# ERROR
+# CRITICAL
 loglevel: logging.INFO
+
+# Enable file logging
+# logpath: /path/to/logfile
 """
 
     with open(config_path, "w") as config_file:
         config_file.write(config)
-    print("Please review your new config and start again.", file=sys.stderr)
+    logging.error("Please review your new config and start again.")
     exit(1)
+
 
 
 def main():
@@ -316,11 +342,17 @@ def main():
     if commandline_args.quiet:
         config["loglevel"] = "ERROR"
 
+    logfile = ""
+    if "logfile" in config:
+        logfile = config["logfile"]
+
     loglevel = getattr(logging, config["loglevel"].upper())
-    logging.basicConfig(level=loglevel)
+    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=loglevel,
+                        datefmt='%d.%m.%Y %I:%M:%S', filename=logfile)
 
 
-    logging.info('Script was started at ' + str(datetime.datetime.now()))
+    logging.info('Script was started at ' + str(datetime.datetime.now()) +
+                 " with the configuration: " + str(config))
 
     intervall = commandline_args.intervall
 
