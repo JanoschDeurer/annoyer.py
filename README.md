@@ -1,7 +1,7 @@
 # annoyer.py
 
-** Note: This program is still in its testing phase and will probably contain
-bugs. **
+**Note: This program is still in its testing phase and will probably contain
+bugs.**
 
 This program sends reminder mails with an increasing frequency to remind people
 to do something. The E-Mail itself as well as the frequency are configurable
