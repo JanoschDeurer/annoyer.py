@@ -53,10 +53,12 @@ class EMail(object):
 
     def __init__(self, file_path, interval):
         self.file_path = file_path
+        self.new_file_path = file_path
         self.interval = interval
         self.email_config = None
         if self.interval.endswith("/"):
             self.interval = self.interval[0:-1]
+        self.email_config_has_errors = False
 
     def __str__(self):
         """ String representation of the class
@@ -64,8 +66,9 @@ class EMail(object):
 
         """
         return "file_path: " + self.file_path + "\n" + \
-            "interval: " + self.interval + "\n" + \
-            "emai_config: " + str(self.email_config)
+               "new_file_path: " + self.new_file_path + "\n" + \
+               "interval: " + self.interval + "\n" + \
+               "emai_config: " + str(self.email_config)
 
     def load_file(self):
         """ Loads configuration out of self.file_path into self.email_config
@@ -77,11 +80,75 @@ class EMail(object):
             try:
                 self.email_config = yaml.safe_load(email_file.read())
             except yaml.YAMLError as err:
-                logging.critical("Yaml errror in the mail " + self.file_path + "\n"
-                                 + str(err) + " \n Exiting program")
-                exit(1)
+                logging.error("Yaml errror in the mail " + self.file_path + "\n"
+                              + str(err))
+                self.email_config_has_errors = True
+                return
+
+        keys = ["recipients", "subject", "mailtext"]
+
+        # Check if the keys are given in the config
+        for key in keys:
+            if key not in self.email_config:
+                self._yaml_key_not_found(key)
 
 
+        # Check if intervals are given
+        if "intervals" not in self.email_config:
+            self._yaml_key_not_found("intervals")
+            return
+
+        # Check if current interval is given
+        if self.interval not in self.email_config["intervals"]:
+            self._yaml_key_not_found("intervals: " + self.interval)
+            return
+
+
+        # Check if file already has a number attached that counts the remaining
+        # sends in this interval. Else read this number from the config
+        ends_with_number = bool(re.findall(r"\.-?[0-9]*$", self.file_path))
+        remaining_repetitions = 0
+        file_name = ""
+        logging.debug("Trying to determine number of remaining repetitions")
+        if ends_with_number:
+            logging.debug("Filename ends on number, extracting number")
+            remaining_repetitions = int(self.file_path.split(".")[-1])
+            file_name = os.path.splitext(self.file_path)[0]
+
+        else:
+            # Try to read remaining repetitions from config
+            logging.debug("Filename does not end on number, extracting" +
+                          "remaining_repetitions form config file")
+            if "repetitions" not in self.email_config["intervals"][self.interval]:
+                self._yaml_key_not_found("intervals: " + self.interval + " repetitions")
+                return
+            remaining_repetitions = int(self.email_config["intervals"]
+                                        [self.interval]["repetitions"])
+            file_name = self.file_path
+
+        if remaining_repetitions > 0:
+            remaining_repetitions -= 1
+
+        self.new_file_path = file_name + "." +  str(remaining_repetitions)
+
+        # Check if mail has to be moved into a new folder
+        if remaining_repetitions == 0:
+            # Check if next_interval is given
+            if "next_interval" not in self.email_config["intervals"][self.interval]:
+                self._yaml_key_not_found("intervals: " + self.interval + ": next_interval")
+                return
+
+            next_interval = self.email_config["intervals"][self.interval]["next_interval"]
+
+            # Check if repetitions for next_interval are given
+            if "repetitions" not in self.email_config["intervals"][next_interval]:
+                self._yaml_key_not_found("intervals: " + next_interval + ": repetitions")
+                return
+
+            repetitions = self.email_config["intervals"][next_interval]["repetitions"]
+            print(next_interval)
+            self.new_file_path = os.path.join(os.pardir, next_interval,
+                                              file_name + "." + str(repetitions))
 
         logging.debug("Succesfully read config from '" + self.file_path + "'\n" +
                       "The mail object now looks as follows: \n" + str(self))
@@ -92,9 +159,9 @@ class EMail(object):
         :returns: None
 
         """
-        logging.critical("YAML Key '" + key + "' not found in the mail " + self.file_path)
-        logging.critical("Exiting program due to previouse errors.")
-        exit(1)
+        logging.error("YAML Key '" + key + "' not found in the mail " + self.file_path)
+        self.email_config_has_errors = True
+
 
 
     def send(self):
@@ -104,10 +171,16 @@ class EMail(object):
         :returns: None
 
         """
+        # Check if load file was execuded
+        if self.email_config is None:
+            logging.error("method send was execuded, but self.email_config" +
+                          "was not initialized. There is some bug in the code, please" +
+                          "contact the code maintainer.")
 
-        # Check if recipients are given
-        if "recipients" not in self.email_config:
-            self._yaml_key_not_found("recipients")
+        if self.email_config_has_errors:
+            logging.error("E-Mail '" + self.file_path + "' could not be send" +
+                          "due to yaml errors in this mail")
+
 
         recipients = self.email_config["recipients"]
 
@@ -116,15 +189,7 @@ class EMail(object):
             recipients = [recipients]
 
 
-        # Check if subject is given
-        if "subject" not in self.email_config:
-            self._yaml_key_not_found("subject")
-
         subject = self.email_config["subject"]
-
-        # Check if subject is given
-        if "mailtext" not in self.email_config:
-            self._yaml_key_not_found("mailtext")
 
         mail_text = self.email_config["mailtext"]
 
@@ -142,59 +207,17 @@ class EMail(object):
         :returns: None
 
         """
-        # Check if intervals are given
-        if "intervals" not in self.email_config:
-            self._yaml_key_not_found("intervals")
+        # Check if load file was execuded
+        if self.email_config is None:
+            logging.error("method move_mail was execuded, but self.email_config" +
+                          "was not initialized. There is some bug in the code, please" +
+                          "contact the code maintainer.")
 
-        # Check if current interval is given
-        if self.interval not in self.email_config["intervals"]:
-            self._yaml_key_not_found("intervals: " + self.interval)
+        if self.email_config_has_errors:
+            logging.error("E-Mail '" + self.file_path + "' could not be moved to new location" +
+                          "due to yaml errors in this mail")
 
-        # Check if file already has a number attached that counts the remaining
-        # sends in this interval. Else read this number from the config
-        ends_with_number = bool(re.findall(r"\.-?[0-9]*$", self.file_path))
-        remaining_repetitions = 0
-        logging.debug("Trying to determine number of remaining repetitions")
-        new_file_path = self.file_path
-        if ends_with_number:
-            logging.debug("Filename ends on number, extracting number")
-            remaining_repetitions = int(self.file_path.split(".")[-1])
-            new_file_path = os.path.splitext(self.file_path)[0] + \
-                            "." + str(remaining_repetitions)
-
-        else:
-            # Try to read remaining repetitions from config
-            logging.debug("Filename does not end on number, extracting" +
-                          "remaining_repetitions form config file")
-            if "repetitions" not in self.email_config["intervals"][self.interval]:
-                self._yaml_key_not_found("intervals: " + self.interval + " repetitions")
-            remaining_repetitions = int(self.email_config["intervals"]
-                                        [self.interval]["repetitions"])
-            new_file_path = self.file_path + "." + str(remaining_repetitions)
-
-        if remaining_repetitions > 0:
-            remaining_repetitions -= 1
-
-        # Check if mail hast to be moved into a new folder
-        if remaining_repetitions == 0:
-            # Check if next_interval is given
-            if "next_interval" not in self.email_config["intervals"][self.interval]:
-                self._yaml_key_not_found("intervals: " + self.interval + ": next_interval")
-
-            next_interval = self.email_config["intervals"][self.interval]["next_interval"]
-
-            # Check if repetitions for next_interval are given
-            if "repetitions" not in self.email_config["intervals"][next_interval]:
-                self._yaml_key_not_found("intervals: " + next_interval + ": repetitions")
-
-            repetitions = self.email_config["intervals"][next_interval]["repetitions"]
-            new_file_path = os.path.join(os.pardir, next_interval,
-                                         os.path.splitext(new_file_path)[0] +
-                                         "." + str(repetitions))
-
-
-        os.rename(self.file_path, new_file_path)
-        self.file_path = new_file_path
+        os.rename(self.file_path, self.new_file_path)
 
 
 def write_email(msg_text, msg_subject, mail_to):
@@ -215,7 +238,6 @@ def write_email(msg_text, msg_subject, mail_to):
     smtpserver = smtplib.SMTP('localhost')
     smtpserver.send_message(msg)
     smtpserver.quit()
-    logging.debug("A message was sent to" + mail_to)
 
 def is_dir(path):
     """ Checks whether a directory exists and raises an argparse Error
