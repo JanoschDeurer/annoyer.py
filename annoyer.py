@@ -40,7 +40,6 @@ from email.mime.text import MIMEText
 import logging
 import smtplib
 import datetime
-import sys
 import os
 import re
 import argparse
@@ -166,7 +165,7 @@ class EMail(object):
 
 
 
-    def send(self):
+    def send(self, mail_from):
         """ Parses email_config for mail configuration an sends emails to the
         given recipients with the given subject and body. load_file has to be
         executed before this method.
@@ -199,7 +198,7 @@ class EMail(object):
         for recipient in recipients:
             logging.info("sending mail '" + self.file_path + "' to " +
                          recipient)
-            write_email(mail_text, subject, recipient)
+            write_email(mail_text, subject, recipient, mail_from)
 
 
     def move_mail(self):
@@ -222,7 +221,7 @@ class EMail(object):
         os.rename(self.file_path, self.new_file_path)
 
 
-def write_email(msg_text, msg_subject, mail_to):
+def write_email(msg_text, msg_subject, mail_to, mail_from):
     """ Writes an e-mail with the given text and subject
 
     :msg_text:(str) Message text
@@ -233,7 +232,7 @@ def write_email(msg_text, msg_subject, mail_to):
 
     msg = MIMEText(msg_text)
     msg['Subject'] = msg_subject
-    msg['From'] = "janosch.deurer@geonautik.de"
+    msg['From'] = mail_from
     msg['To'] = mail_to
 
     # Send the message via our own SMTP server.
@@ -261,6 +260,7 @@ def get_commandline_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("intervall", help="directory with the mails to be progressed",
                         type=is_dir)
+    parser.add_argument("-l", "--logfile", help="path to a file the output is passed to")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--verbosity", help="increase output verbosity", action="store_true")
     group.add_argument("-q", "--quiet", help="no output except errors", action="store_true")
@@ -345,7 +345,10 @@ def main():
     logfile = ""
     if "logfile" in config:
         logfile = config["logfile"]
+    if commandline_args.has_attr("logfile"):
+        logfile = commandline_args.logfile
 
+    # TODO: put this in the beginning
     loglevel = getattr(logging, config["loglevel"].upper())
     logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=loglevel,
                         datefmt='%d.%m.%Y %I:%M:%S', filename=logfile)
@@ -370,7 +373,7 @@ def main():
     for email in emails:
         email.load_file()
 
-        email.send()
+        email.send(config["mail_from"])
         email.move_mail()
 
 if __name__ == "__main__":
