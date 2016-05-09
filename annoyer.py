@@ -333,6 +333,9 @@ def main():
     """
     Entrypoint if called as an executable
     """
+    logging_format = '%(asctime)s %(levelname)s:%(message)s'
+    logging.basicConfig(format=logging_format,
+                        datefmt='%d.%m.%Y %I:%M:%S')
     commandline_args = get_commandline_arguments()
     config = read_config()
 
@@ -345,13 +348,22 @@ def main():
     logfile = ""
     if "logfile" in config:
         logfile = config["logfile"]
+    # override config with command line arguments
     if commandline_args.has_attr("logfile"):
         logfile = commandline_args.logfile
 
-    # TODO: put this in the beginning
+    # If logfile is given, generate a new logger with file handling
+    if logfile:
+        filehandler = logging.FileHandler(logfile, 'a')
+        formatter = logging.Formatter(logging_format)
+        filehandler.setFormatter(formatter)
+        logger = logging.getLogger()
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
+        logger.addHandler(filehandler)
+
     loglevel = getattr(logging, config["loglevel"].upper())
-    logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=loglevel,
-                        datefmt='%d.%m.%Y %I:%M:%S', filename=logfile)
+    logging.getLogger().setLevel(loglevel)
 
 
     logging.info('Script was started at ' + str(datetime.datetime.now()) +
