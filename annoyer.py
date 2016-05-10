@@ -349,7 +349,7 @@ def main():
     if "logfile" in config:
         logfile = config["logfile"]
     # override config with command line arguments
-    if hasattr(commandline_args, "logfile"):
+    if commandline_args.logfile:
         logfile = commandline_args.logfile
 
     # If logfile is given, generate a new logger with file handling
@@ -379,7 +379,7 @@ def main():
 
     intervall = commandline_args.intervall
 
-    logging.info("Switching to directory " + intervall)
+    logging.debug("Switching to directory " + intervall)
     os.chdir(intervall)
     email_files = [f for f in os.listdir() if
                    os.path.isfile(f)]
