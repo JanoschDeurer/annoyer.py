@@ -81,7 +81,7 @@ class EMail(object):
         try:
             self.email_config = yaml.safe_load(text_email_file)
         except yaml.YAMLError as err:
-            logging.error("Yaml errror in the mail " + self.file_path + "\n"
+            logging.error("Yaml error in the mail " + self.file_path + "\n"
                           + str(err))
             self.email_config_has_errors = True
             return
@@ -283,7 +283,7 @@ def read_config():
         try:
             config = yaml.safe_load(config_str)
         except yaml.YAMLError as err:
-            logging.critical("Yaml errror in 'config.yml':\n"
+            logging.critical("Yaml error in 'config.yml':\n"
                              + str(err) + "\n" +
                              "exiting program")
             exit(1)
