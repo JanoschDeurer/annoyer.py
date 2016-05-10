@@ -220,8 +220,8 @@ class EMail(object):
         # Check if load file was execuded
         if self.email_config is None:
             logging.critical("method move_mail was execuded, but self.email_config" +
-                          "was not initialized. There is some bug in the code, please" +
-                          "contact the code maintainer.")
+                             "was not initialized. There is some bug in the code, please" +
+                             "contact the code maintainer.")
             exit(1)
 
 
@@ -242,10 +242,14 @@ def write_email(msg_text, msg_subject, mail_to, mail_from):
     msg['From'] = mail_from
     msg['To'] = mail_to
 
-    # Send the message via our own SMTP server.
-    smtpserver = smtplib.SMTP('localhost')
-    smtpserver.send_message(msg)
-    smtpserver.quit()
+    try:
+        # Send the message via our own SMTP server.
+        smtpserver = smtplib.SMTP('localhost')
+        smtpserver.send_message(msg)
+        smtpserver.quit()
+    except ConnectionRefusedError:
+        logging.error("Connection refused by smtp server, please make shure" +
+                      "your smtp server on localhost is working")
 
 def is_dir(path):
     """ Checks whether a directory exists and raises an argparse Error
