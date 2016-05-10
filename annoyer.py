@@ -248,7 +248,7 @@ def write_email(msg_text, msg_subject, mail_to, mail_from):
         smtpserver.send_message(msg)
         smtpserver.quit()
     except ConnectionRefusedError:
-        logging.error("Connection refused by smtp server, please make shure" +
+        logging.error("Connection refused by smtp server, please make shure " +
                       "your smtp server on localhost is working")
 
 def is_dir(path):
