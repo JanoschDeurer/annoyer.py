@@ -172,15 +172,19 @@ class EMail(object):
         :returns: None
 
         """
-        # Check if load file was execuded
-        if self.email_config is None:
-            logging.error("method send was execuded, but self.email_config" +
-                          "was not initialized. There is some bug in the code, please" +
-                          "contact the code maintainer.")
-
+        # Check if mail has yaml errors
         if self.email_config_has_errors:
             logging.error("E-Mail '" + self.file_path + "' could not be send" +
                           "due to yaml errors in this mail")
+            return
+
+        # Check if load file was execuded
+        if self.email_config is None:
+            logging.critical("method send was execuded, but self.load_file " +
+                             "was not initialized. There is some bug in the code, please" +
+                             "contact the code maintainer.")
+            exit(1)
+
 
 
         recipients = self.email_config["recipients"]
@@ -208,15 +212,18 @@ class EMail(object):
         :returns: None
 
         """
-        # Check if load file was execuded
-        if self.email_config is None:
-            logging.error("method move_mail was execuded, but self.email_config" +
-                          "was not initialized. There is some bug in the code, please" +
-                          "contact the code maintainer.")
-
         if self.email_config_has_errors:
             logging.error("E-Mail '" + self.file_path + "' could not be moved to new location" +
                           "due to yaml errors in this mail")
+            return
+
+        # Check if load file was execuded
+        if self.email_config is None:
+            logging.critical("method move_mail was execuded, but self.email_config" +
+                          "was not initialized. There is some bug in the code, please" +
+                          "contact the code maintainer.")
+            exit(1)
+
 
         os.rename(self.file_path, self.new_file_path)
 
