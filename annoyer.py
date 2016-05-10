@@ -349,7 +349,7 @@ def main():
     if "logfile" in config:
         logfile = config["logfile"]
     # override config with command line arguments
-    if commandline_args.has_attr("logfile"):
+    if hasattr(commandline_args, "logfile"):
         logfile = commandline_args.logfile
 
     # If logfile is given, generate a new logger with file handling
