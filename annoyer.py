@@ -316,7 +316,7 @@ mail_from: john.doe@example.com
 # WARNING
 # ERROR
 # CRITICAL
-loglevel: logging.INFO
+loglevel: INFO
 
 # Enable file logging
 # logpath: /path/to/logfile
@@ -362,7 +362,15 @@ def main():
             logger.removeHandler(handler)
         logger.addHandler(filehandler)
 
-    loglevel = getattr(logging, config["loglevel"].upper())
+    try:
+        loglevel = getattr(logging, config["loglevel"].upper())
+    except AttributeError:
+        logging.error("loglevel definition in config file is wrong, '" +
+                      config["loglevel"] + "' is no valid loglevel\nplease choose one" +
+                      "of the following loglevels:\nDEBUG\nINFO\nWARNING\nERROR\nCRITICAL")
+        logging.error("setting loglevel to DEBUG")
+        loglevel = logging.DEBUG
+
     logging.getLogger().setLevel(loglevel)
 
 
