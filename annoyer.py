@@ -67,7 +67,7 @@ class EMail(object):
         return "file_path: " + self.file_path + "\n" + \
                "new_file_path: " + self.new_file_path + "\n" + \
                "interval: " + self.interval + "\n" + \
-               "emai_config: " + str(self.email_config)
+               "email_config: " + str(self.email_config)
 
     def load_file(self):
         """ Loads configuration out of self.file_path into self.email_config
@@ -165,10 +165,12 @@ class EMail(object):
 
 
 
-    def send(self, mail_from):
+    def send(self, mail_from, smtp_server_domain='localhost'):
         """ Parses email_config for mail configuration an sends emails to the
         given recipients with the given subject and body. load_file has to be
         executed before this method.
+        :mail_from:(str) address the mail is send from
+        :smtp_server_domain:(str) domain name of the smtp server that is used
         :returns: None
 
         """
@@ -202,7 +204,7 @@ class EMail(object):
         for recipient in recipients:
             logging.info("sending mail '" + self.file_path + "' to " +
                          recipient)
-            write_email(mail_text, subject, recipient, mail_from)
+            write_email(mail_text, subject, recipient, mail_from, smtp_server_domain)
 
 
     def move_mail(self):
@@ -228,13 +230,15 @@ class EMail(object):
         os.rename(self.file_path, self.new_file_path)
 
 
-def write_email(msg_text, msg_subject, mail_to, mail_from):
+def write_email(msg_text, msg_subject, mail_to, mail_from, smtp_server_domain='localhost'):
     """ Writes an e-mail with the given text and subject
 
     :msg_text:(str) Message text
     :msg_subject:(str) Message subject
+    :mail_to:(str) address the mail is send to
+    :mail_from:(str) address the mail is send from
+    :smtp_server_domain:(str) domain name of the smtp server that is used
     :returns: None
-
     """
 
     msg = MIMEText(msg_text)
@@ -244,12 +248,14 @@ def write_email(msg_text, msg_subject, mail_to, mail_from):
 
     try:
         # Send the message via our own SMTP server.
-        smtpserver = smtplib.SMTP('localhost')
+        smtpserver = smtplib.SMTP(smtp_server_domain)
         smtpserver.send_message(msg)
         smtpserver.quit()
-    except ConnectionRefusedError:
+    except ConnectionRefusedError as error:
         logging.error("Connection refused by smtp server, please make shure " +
-                      "your smtp server on localhost is working")
+                      "your smtp server on localhost is working. The error is: " + str(error))
+    except smtplib.SMTPServerDisconnected as error:
+        logging.error("Connection to smtpserver failed with with error: " + str(error))
 
 def is_dir(path):
     """ Checks whether a directory exists and raises an argparse Error
@@ -275,6 +281,7 @@ def get_commandline_arguments():
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", "--verbosity", help="increase output verbosity", action="store_true")
     group.add_argument("-q", "--quiet", help="no output except errors", action="store_true")
+    parser.add_argument("-s", "--smtpserver", help="smtp mail server domain")
     args = parser.parse_args()
     return args
 
@@ -331,6 +338,9 @@ loglevel: INFO
 
 # Enable file logging
 # logpath: /path/to/logfile
+
+# Use this if you want to specify a mailserver address different from 'localhost'
+# smtp_server_domain: example.com
 """
 
     with open(config_path, "w") as config_file:
@@ -388,6 +398,14 @@ def main():
     logging.info('Script was started at ' + str(datetime.datetime.now()) +
                  " with the configuration: " + str(config))
 
+    smtp_server_domain = "localhost"
+    if "smtp_server_domain" in config:
+        smtp_server_domain = config["smtp_server_domain"]
+    # override config with command line arguments
+    if commandline_args.smtpserver:
+        smtp_server_domain = commandline_args.logfile
+
+
     intervall = commandline_args.intervall
 
     logging.debug("Switching to directory " + intervall)
@@ -404,7 +422,7 @@ def main():
     for email in emails:
         email.load_file()
 
-        email.send(config["mail_from"])
+        email.send(config["mail_from"], smtp_server_domain)
         email.move_mail()
 
 if __name__ == "__main__":
